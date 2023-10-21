@@ -1,0 +1,11 @@
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/01-Ennio.Morricone-Mission.to.Mars-A.Heart.Beats.In.Space.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/02-Ennio.Morricone-Mission.to.Mars-A.Martian.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/03-Ennio.Morricone-Mission.to.Mars-A.World.Which.Searches.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/04-Ennio.Morricone-Mission.to.Mars-And.Afterwards.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/05-Ennio.Morricone-Mission.to.Mars-A.Wife.Lost.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/06-Ennio.Morricone-Mission.to.Mars-Towards.The.Unknown.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/07-Ennio.Morricone-Mission.to.Mars-Ecstacy.Of.Mars.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/08-Ennio.Morricone-Mission.to.Mars-Sacrifice.of.A.Hero.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/09-Ennio.Morricone-Mission.to.Mars-Where.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/10-Ennio.Morricone-Mission.to.Mars-An.Unexpected.Surprise.mp3
+/media/thoth/Actinium/audio/Soundtracks/Mission.to.Mars/11-Ennio.Morricone-Mission.to.Mars-All.The.Friends.mp3
