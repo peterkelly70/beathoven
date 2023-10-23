@@ -53,6 +53,7 @@ BUGS galore:
     playlists - don't handle spaces in filenames
 
 Wishlist:
+    queing, let people add music to a que.
     mp3 tag information used and embedded images for Songs.
     Folder images, like cover.jpg displayed for playlists.
     Youtube thumbnails for now playing and playlists.
