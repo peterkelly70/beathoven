@@ -14,8 +14,15 @@ clone the repo
     # Install the dependencies from the requirements.txt file
     pip install -r requirements.txt
 
+    #run beathoven.py
+    chmod +x beathoven.py
+    ./beathoven.py
+    
     # When done working on the project, you can deactivate the virtual environment
     deactivate  # (Optional) Run this when you're done working to exit the virtual environment
+
+    ******* TO DO *******
+     - make the bot a service
 
 You will need the follwoing in the .env file:
     DISCORD_BOT_TOKEN='YOUR_DISCDORD_TOKEN'
@@ -51,8 +58,10 @@ BUGS galore:
     volume  - volume works occasionaly
     mute/unbmute - related to volume issues? mute does nothing
     playlists - don't handle spaces in filenames
+    repeat song not working if song is last song in list
 
 Wishlist:
+    logging is non existent at present.
     queing, let people add music to a que.
     mp3 tag information used and embedded images for Songs.
     Folder images, like cover.jpg displayed for playlists.
@@ -66,5 +75,7 @@ Wishlist:
 Roadmap
     - MVP (minium viable product)
         - pretty much there, just need to sort out the youtube playback issues
+    - add logging
     - fix volume control
+    - update documentation
 

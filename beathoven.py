@@ -134,6 +134,8 @@ async def play_next_song(ctx, voice_client, index):
 @bot.event
 async def on_ready():
     print(f'Bot {bot.user.name} has connected to Discord!')
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!help for commands"))
+
 
 @bot.command(name='join', help='Tells the bot to join the voice channel')
 async def join(ctx):
