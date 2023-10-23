@@ -1,0 +1,5 @@
+discord.py
+yt-dlp
+ffmpeg-python
+python-dotenv
+enum34; python_version < '3.4'

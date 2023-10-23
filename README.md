@@ -6,10 +6,23 @@ clone the repo
     git clone https://github.com/peterkelly70/beathoven.git
     cd beathoven
     touch .env
-   
+    # Create a virtual environment named botenv
+    python3 -m venv botenv
+
+    # Activate the virtual environment
+    source botenv/bin/activate  # On Windows, use: .\botenv\Scripts\activate
+    # Install the dependencies from the requirements.txt file
+    pip install -r requirements.txt
+
+    # When done working on the project, you can deactivate the virtual environment
+    deactivate  # (Optional) Run this when you're done working to exit the virtual environment
+
 You will need the follwoing in the .env file:
     DISCORD_BOT_TOKEN='YOUR_DISCDORD_TOKEN'
     PLAYLIST_DIR='/home/musicbot/Beathoven/playlists/'
+
+Was developed on Ubuntu 22.04 against Python 3.10.
+I used a chatGPT and codeGPT to the bulk of the bolierplate and to teach me the discord.py package. It took a bit of wrangling but I think the code seems pretty straightforward and mostly works*
 
 Beathoven Commands:
   back    Go back one or more songs

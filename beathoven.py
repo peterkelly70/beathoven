@@ -141,6 +141,8 @@ async def join(ctx):
         await ctx.send(f"{ctx.author.name} is not connected to a voice channel")
         return
     channel = ctx.author.voice.channel
+    if ctx.voice_client is not None:
+        return await ctx.voice_client.move_to(channel)
     await channel.connect()
 
 @bot.command(name='leave', help='Tells the bot to leave the voice channel')
