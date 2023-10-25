@@ -32,22 +32,27 @@ Was developed on Ubuntu 22.04 against Python 3.10.
 I used a chatGPT and codeGPT to the bulk of the bolierplate and to teach me the discord.py package. It took a bit of wrangling but I think the code seems pretty straightforward and mostly works*
 
 Beathoven Commands:
+  add     Add a single url to the current playlist
   back    Go back one or more songs
+  code    Where do I get this awesome code?
   help    Shows this message
   join    Tells the bot to join the voice channel
   leave   Tells the bot to leave the voice channel
-  list    Show available local playlists
+  list    Show available playlists
   mute    Mute the bot
   pause   Pause song
-  play    Play songs from a local playlist
+  play    Play songs from a playlist
   repeat  Tells the bot to repeat the song/list or not
   restart Restart the current song
   resume  Resumes a song.
   skip    Skip song
-  stop    Stop playing
+  stop    stop playing
   unmute  Unmute the bot
   volume  Change Volume of song
   yt      Play a youtube url
+
+Type !help command for more info on a command.
+You can also type !help category for more info on a category.
 
 Type !help command for more info on a command.
 You can also type !help category for more info on a category.

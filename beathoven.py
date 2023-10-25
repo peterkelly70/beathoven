@@ -189,7 +189,7 @@ async def play_song(ctx, voice_client):
         if playlist_type == PLAYLIST_TYPE.YOUTUBE.value :
         # Handle YouTube URLs
             await wait_until_done(voice_client)
-            stream_info, stream_url = stream_audio_from_youtube(url)
+            stream_info, stream_url = stream_audio_from_youtube(song)
             audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
             song_title = stream_info['title']
             voice_client.play(audio_source,after=lambda e: bot.loop.create_task(advance_song(ctx, voice_client)))
