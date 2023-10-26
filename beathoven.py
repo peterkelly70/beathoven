@@ -37,10 +37,11 @@ intents = discord.Intents().all()
 # Global variables
 previous_volume = 0.5
 current_playlist = {
-    "name": None,
-    "playlist": [],
-    "currently_playing": 0,
-    "playlist_type": None
+    "name": None,           # name of the playlist
+    "playlist": [],         # holds the playlist, uri's
+    "currently_playing": 0, # index of current track
+    "duration": 0,          # duration of current track in seconds
+    "playlist_type": None   # Local, Radio or Youtube
 }
 
 current_type = PLAYLIST_TYPE.LOCAL.value
@@ -127,6 +128,7 @@ def load_playlist(playlist_name,playlist_type):
     current_playlist['name']=playlist_name
     current_playlist['playlist_type']=playlist_type
     current_playlist['currently_playing']=0
+    current_playlist['duration']=0
     with open(playlist_path, 'r') as f:
         current_playlist['playlist'] = [line.rstrip() for line in f]
         
@@ -225,6 +227,8 @@ async def play_song(ctx, voice_client):
             stream_info, stream_url = stream_audio_from_youtube(song)
             audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
             song_title = stream_info['title']
+            current_playlist['duration'] = stream_info['duration']
+            stream_start_time = time.time()
             # voice_client.play(audio_source,after=lambda e: bot.loop.create_task(advance_song(ctx, voice_client)))
             voice_client.play(audio_source, after=lambda e: bot.loop.create_task(handle_playback_error(ctx, voice_client, stream_url, e)) if e else bot.loop.create_task(advance_song(ctx, voice_client)))
         elif playlist_type == PLAYLIST_TYPE.RADIO.value :
@@ -248,6 +252,8 @@ async def advance_song(ctx, voice_client):
         global should_stop
         global current_playlist
         global repeat
+        global stream_start_time
+    
 
         # If playlist is empty, just return
         if not current_playlist["playlist"]:
@@ -271,6 +277,7 @@ async def advance_song(ctx, voice_client):
         await play_song(ctx, voice_client)
     except Exception as e:
         await ctx.send(f"Error advancing song: {str(e)}")
+        
 @bot.command(name='yt', help='Play a youtube url')
 async def play_yt(ctx, url): 
     global should_stop
