@@ -4,10 +4,12 @@ import os
 import traceback
 import yt_dlp
 import ffmpeg
+import time
 import asyncio
 import dotenv
 import enum
 from discord.ext import commands
+from discord import FFmpegPCMAudio
 from discord.ext.commands import BadArgument
 from dotenv import load_dotenv
 from enum import Enum
@@ -44,6 +46,8 @@ current_playlist = {
 current_type = PLAYLIST_TYPE.LOCAL.value
 repeat = REPEAT.OFF
 should_stop = False # Global flag to control playback
+keep_alive_interval = 1.0 # in seconds
+stream_start_time = 0 # tracks stream start for stream restart
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 ytdl_format_options = {
@@ -76,6 +80,13 @@ ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 
 # helper
+
+def convert_to_ffmpeg_time_format(seconds):
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
+
 def stream_audio_from_youtube(url):
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -84,8 +95,8 @@ def stream_audio_from_youtube(url):
             'preferredcodec': 'mp3',
         }],
     }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    global ytdl_format_options
+    with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
         info = ydl.extract_info(url, download=False)
         stream_url = info['url']
     
@@ -128,6 +139,12 @@ def strip_basepath(url):
     parsed_url = urlparse(url)
     return os.path.basename(parsed_url.path)
 
+async def send_keep_alive():
+    while True:
+        # Code to send the keep-alive signal
+        global keep_alive_interval
+        await asyncio.sleep(keep_alive_interval)  # Pause for the interval duration
+
 
 # Bot Events
 
@@ -136,6 +153,7 @@ def strip_basepath(url):
 async def on_ready():
     print(f'Bot {bot.user.name} has connected to Discord!')
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!help for commands"))
+    bot.loop.create_task(send_keep_alive())
 
 # bad argument handling
 @bot.event
@@ -145,6 +163,21 @@ async def on_command_error(ctx, error):
     else:
         await ctx.send(f"An error occurred: {error}")
 
+# restart stream
+async def restart_stream(voice_client, source_url):
+    global stream_start_time
+    stream_elapsed_time = time.time() - stream_start_time
+    seek_time = convert_to_ffmpeg_time_format(stream_elapsed_time)
+
+    audio_source = FFmpegPCMAudio(source_url, before_options=f'-ss {seek_time}')
+    voice_client.play(audio_source, after=lambda e: handle_stream_end(e))
+    stream_start_time = time.time()  # Reset the start time
+
+# handle play_back errors
+async def handle_playback_error(ctx, voice_client, source_url, exception):
+    print(f'Error when playing {source_url}. Reason: {exception}')
+    await restart_stream(voice_client, source_url)
+    bot.loop.create_task(play_song(ctx, voice_client))
 
 # Bot commands
 
@@ -192,7 +225,8 @@ async def play_song(ctx, voice_client):
             stream_info, stream_url = stream_audio_from_youtube(song)
             audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
             song_title = stream_info['title']
-            voice_client.play(audio_source,after=lambda e: bot.loop.create_task(advance_song(ctx, voice_client)))
+            # voice_client.play(audio_source,after=lambda e: bot.loop.create_task(advance_song(ctx, voice_client)))
+            voice_client.play(audio_source, after=lambda e: bot.loop.create_task(handle_playback_error(ctx, voice_client, stream_url, e)) if e else bot.loop.create_task(advance_song(ctx, voice_client)))
         elif playlist_type == PLAYLIST_TYPE.RADIO.value :
                 # Handle radio URLs
                 song_title = song  # We'll use URL as title here
@@ -240,22 +274,24 @@ async def advance_song(ctx, voice_client):
 @bot.command(name='yt', help='Play a youtube url')
 async def play_yt(ctx, url): 
     global should_stop
+    title=""
     if should_stop:
         should_stop = False
         return title
     
     voice_channel = ctx.message.author.voice.channel
-    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    voice_client = discord.utils.get(bot.voice_clients, guild=ctx.guild)
     
-    if voice and voice.is_connected():
-        await voice.move_to(voice_channel)
+    if voice_client and voice_client.is_connected():
+        await voice_client.move_to(voice_channel)
     else:
-        voice = await voice_channel.connect()
+        voice_client = await voice_channel.connect()
     # create a sinlge playlist
     current_playlist['queue'] ="Youtube"
-    add_to_playlist(ctx,url)
+    await add_to_playlist(ctx,url)
     current_playlist['currently_playing'] = 0
     current_playlist['playlist_type'] = PLAYLIST_TYPE.YOUTUBE.value
+    await play_song(ctx, voice_client)
 
         
 @bot.command(name='add', help='Add a single url to the current playlist')
@@ -326,7 +362,6 @@ async def play_playlist(ctx,*,args):
         song_name = os.path.basename(path)  # This removes the path detail and leaves only the song's name
         song_list += f'{i+1}. {song_name}\n'  # Append each song to the list
     await ctx.send(song_list)  # Send the complete list to chat
-    
     await play_song(ctx, voice_client)
 
 
@@ -379,7 +414,7 @@ async def skip(ctx, num_to_skip: int = 1):
     next_song_index = max(0, current_playlist['currently_playing']+ num_to_skip)
     voice_client.stop()
     await wait_until_done(voice_client)
-    bot.loop.create_task(play_song(ctx, voice_client, next_song_index))
+    bot.loop.create_task(play_song(ctx, voice_client))
 
 # Back, ideally this should be a wrapper.
 @bot.command(name='back', help='Go back one or more songs')
@@ -392,7 +427,7 @@ async def back(ctx, num_to_go_back: int = 1):
     next_song_index = max(0, current_playlist['currently_playing']- num_to_go_back)
     voice_client.stop()
     await wait_until_done(voice_client)
-    bot.loop.create_task(play_song(ctx, voice_client, next_song_index))
+    bot.loop.create_task(play_song(ctx, voice_client))
 
 @bot.command(name='restart', help='Restart the current song')
 async def restart(ctx):
@@ -401,7 +436,7 @@ async def restart(ctx):
         await ctx.send("No song is currently playing.")
         return
     voice_client.stop()
-    bot.loop.create_task(play_song(ctx, voice_client, currently_playing["index"]))
+    bot.loop.create_task(play_song(ctx, voice_client))
 
 @bot.command(name='repeat', help='Tells the bot to repeat the song/list or not')
 async def repeat(ctx, state):
