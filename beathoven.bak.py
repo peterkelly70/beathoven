@@ -82,21 +82,6 @@ ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 # helper
 
-def format_youtube_url(url):
-    # Parse the URL into components
-    url_components = urlparse(url)
-
-    # Parse the query string into a dictionary
-    query = parse_qs(url_components.query)
-
-    # Remove unnecessary parameters
-    query.pop('list', None)
-
-    # Reconstruct the URL
-    url_components = url_components._replace(query=urlencode(query, True))
-
-    return urlunparse(url_components)
-
 def convert_to_ffmpeg_time_format(seconds):
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
@@ -136,20 +121,17 @@ def get_extension(playlist_type):
     
     
 # function to load a playlist into current_playlist
-def load_playlist(playlist_name, playlist_type):
-    ext = get_extension(playlist_type)
-    playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}.{ext}")
+def load_playlist(playlist_name,playlist_type):
+    ext=get_extension(playlist_type)
+    playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}{ext}")
     global current_playlist
-    current_playlist['name'] = playlist_name
-    current_playlist['playlist_type'] = playlist_type
-    current_playlist['currently_playing'] = 0
-    current_playlist['duration'] = 0
+    current_playlist['name']=playlist_name
+    current_playlist['playlist_type']=playlist_type
+    current_playlist['currently_playing']=0
+    current_playlist['duration']=0
     with open(playlist_path, 'r') as f:
-        if playlist_type == PLAYLIST_TYPE.YOUTUBE.value:
-            # If the playlist is of type YouTube, we need to convert the URLs to streamable URLs
-            current_playlist['playlist'] = [format_youtube_url(line.rstrip()) for line in f]
-        else:
-            current_playlist['playlist'] = [line.rstrip() for line in f]
+        current_playlist['playlist'] = [line.rstrip() for line in f]
+        
 
 async def wait_until_done(voice_client):
     while voice_client.is_playing() or voice_client.is_paused():
