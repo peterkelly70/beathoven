@@ -80,22 +80,7 @@ ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 
 
-# helper
-
-def format_youtube_url(url):
-    # Parse the URL into components
-    url_components = urlparse(url)
-
-    # Parse the query string into a dictionary
-    query = parse_qs(url_components.query)
-
-    # Remove unnecessary parameters
-    query.pop('list', None)
-
-    # Reconstruct the URL
-    url_components = url_components._replace(query=urlencode(query, True))
-
-    return urlunparse(url_components)
+# helper``
 
 def convert_to_ffmpeg_time_format(seconds):
     hours = seconds // 3600
@@ -136,20 +121,17 @@ def get_extension(playlist_type):
     
     
 # function to load a playlist into current_playlist
-def load_playlist(playlist_name, playlist_type):
-    ext = get_extension(playlist_type)
-    playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}.{ext}")
+def load_playlist(playlist_name,playlist_type):
+    ext=get_extension(playlist_type)
+    playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}{ext}")
     global current_playlist
-    current_playlist['name'] = playlist_name
-    current_playlist['playlist_type'] = playlist_type
-    current_playlist['currently_playing'] = 0
-    current_playlist['duration'] = 0
+    current_playlist['name']=playlist_name
+    current_playlist['playlist_type']=playlist_type
+    current_playlist['currently_playing']=0
+    current_playlist['duration']=0
     with open(playlist_path, 'r') as f:
-        if playlist_type == PLAYLIST_TYPE.YOUTUBE.value:
-            # If the playlist is of type YouTube, we need to convert the URLs to streamable URLs
-            current_playlist['playlist'] = [format_youtube_url(line.rstrip()) for line in f]
-        else:
-            current_playlist['playlist'] = [line.rstrip() for line in f]
+        current_playlist['playlist'] = [line.rstrip() for line in f]
+        
 
 async def wait_until_done(voice_client):
     while voice_client.is_playing() or voice_client.is_paused():
@@ -359,6 +341,11 @@ async def play_playlist(ctx,*,args):
     
     # Determine the extension based on the playlist type
     ext=get_extension(playlist_type)
+    current_playlist['playlist_type'] = playlist_type
+    current_type=playlist_type
+    print(f"Playlist type: {playlist_type}")
+    print(f"Playlist number: {playlist_number}")
+    print(f"Extension: {ext}")
     
     playlists = [f for f in os.listdir(PLAYLIST_DIR) if f.endswith(ext)]
     
@@ -435,24 +422,20 @@ async def skip(ctx, num_to_skip: int = 1):
     if not voice_client or not voice_client.is_playing():
         await ctx.send("No song is currently playing.")
         return
-
-    next_song_index = max(0, current_playlist['currently_playing']+ num_to_skip)
+    
+    new_index = current_playlist['currently_playing'] + num_to_skip
+    new_index = max(0, new_index)  # Ensure new_index is not less than 0
+    new_index = min(new_index, len(current_playlist['playlist']) - 1)  # Ensure new_index is not greater than the last index
+    current_playlist['currently_playing'] = new_index
+       
     voice_client.stop()
     await wait_until_done(voice_client)
     bot.loop.create_task(play_song(ctx, voice_client))
 
-# Back, ideally this should be a wrapper.
-@bot.command(name='back', help='Go back one or more songs')
-async def back(ctx, num_to_go_back: int = 1):
-    voice_client = ctx.guild.voice_client
-    if not voice_client or not voice_client.is_playing():
-        await ctx.send("No song is currently playing.")
-        return
-
-    next_song_index = max(0, current_playlist['currently_playing']- num_to_go_back)
-    voice_client.stop()
-    await wait_until_done(voice_client)
-    bot.loop.create_task(play_song(ctx, voice_client))
+# Back, call skip with a negative number    
+@bot.command(name='back', help='Go back to a previous song')
+async def back(ctx, num_to_back: int = 1):
+    await ctx.invoke(bot.get_command('skip'), num_to_skip=-num_to_back)
 
 @bot.command(name='restart', help='Restart the current song')
 async def restart(ctx):

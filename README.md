@@ -7,7 +7,7 @@ clone the repo
     cd beathoven
     touch .env
     # Create a virtual environment named botenv
-    python3 -m venv botenv
+    python3 -m venv botenv or if you have conda: conda create -n botenv python=3.8
 
     # Activate the virtual environment
     source botenv/bin/activate  # On Windows, use: .\botenv\Scripts\activate
@@ -64,6 +64,8 @@ BUGS galore:
     mute/unbmute - related to volume issues? mute does nothing
     playlists - don't handle spaces in filenames
     repeat song not working if song is last song in list
+    skip restarts current song 1st time, 2nd time skips
+    The whole track skipping.back is wrong
 
 Wishlist:
     logging is non existent at present.
