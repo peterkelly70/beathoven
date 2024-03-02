@@ -5,3 +5,4 @@ python-dotenv
 enum34; python_version < '3.4'
 PyNaCl
 pytube
+eyed3

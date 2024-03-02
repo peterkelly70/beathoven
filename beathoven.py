@@ -9,6 +9,7 @@ import time
 import asyncio
 import dotenv
 import enum
+import eyed3
 from discord.ext import commands
 from discord import FFmpegPCMAudio
 from discord.ext.commands import BadArgument
@@ -32,6 +33,7 @@ class MODE(Enum):
     OFF = "OFF"
     SONG = "REPEAT"
     LIST = "LIST"
+
 class STATUS(Enum):
     NOT_PLAYING = "Nothing is currently playing."
     NOT_CONNECTED = "Beathoven is not connected to voice Channel."
@@ -158,6 +160,7 @@ def get_extension(playlist_type):
     
 # function to load a playlist into current_playlist
 def load_playlist(playlist_name,playlist_type):
+    playlist_type = playlist_type.lower()
     ext=get_extension(playlist_type)
     playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}{ext}")
     global current_playlist
@@ -193,7 +196,7 @@ async def send_keep_alive():
 @bot.event
 async def on_ready():
     print(f'Bot {bot.user.name} has connected to Discord!')
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!help for commands"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!join to get started."))
     bot.loop.create_task(send_keep_alive())
 
 # bad argument handling
@@ -231,7 +234,9 @@ async def join(ctx):
     if ctx.voice_client is not None:
         return await ctx.voice_client.move_to(channel)
     await channel.connect()
-
+    # Send a message to the text channel
+    await ctx.send(f"I'm Beathoven, I've joined {channel} and I'm ready to play some music!\nType !help for commands.")
+    
 @bot.command(name='leave', help='Tells the bot to leave the voice channel')
 async def leave(ctx):
     voice_client = ctx.guild.voice_client
@@ -273,7 +278,7 @@ async def play_song(ctx):
             audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
             song_title = stream_info['title']
             current_playlist['duration'] = stream_info['duration']
-            stream_start_time = time.time()
+            # stream_start_time = time.time()
             voice_client.play(audio_source, after=lambda e: bot.loop.create_task(handle_playback_error(ctx, voice_client, stream_url, e)) if e else bot.loop.create_task(advance_song(ctx)))
         elif playlist_type == PLAYLIST_TYPE.RADIO.value :
                 # Handle radio URLs
@@ -382,18 +387,18 @@ async def add_to_playlist(ctx, url):
 @bot.command(name='list', help='Show available playlists[local,radio,youtube/yt]')
 async def playlists(ctx, playlist_type=PLAYLIST_TYPE.LOCAL.value):
     # Check if type is a valid playlist type
-    ext=get_extension(playlist_type)
     global current_type 
     playlist_type = playlist_type.lower()
     if playlist_type == 'yt':
         playlist_type = 'youtube'
+    ext=get_extension(playlist_type)
     current_type = playlist_type
     playlists = [f for f in os.listdir(PLAYLIST_DIR) if f.endswith(ext)]
     playlists = [pl.replace(ext, '') for pl in playlists]
     response = "\n".join(f"{i+1}. {pl}" for i, pl in enumerate(playlists))
     await ctx.send(f"Available {playlist_type} playlists:\n{response}")
 
-@bot.command(name='play', help='Play songs from a playlist')
+@bot.command(name='play', help='Play songs from a playlist [local,radio,youtube/yt] [playlist number]')
 async def play_playlist(ctx,*,args=None):
    
     global current_playlist
@@ -448,12 +453,14 @@ async def play_playlist(ctx,*,args=None):
 
     if playlist_number != 0:
         playlist_name = playlists[playlist_number - 1].replace(ext, '')
-        ctx.invoke(bot.get_command('stop'))
+        await ctx.invoke(bot.get_command('stop'))
         current_playlist['playlist'] = []
         load_playlist(playlist_name,current_type)
+        print(f"Loaded playlist {playlist_name} with {len(current_playlist['playlist'])} songs.")
 
         playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}{ext}")
-    
+        print(f"Playlist path: {playlist_path}")
+        
         if not os.path.exists(playlist_path):
             await ctx.send(f"No playlist found named: {playlist_name}")
             return
@@ -461,11 +468,25 @@ async def play_playlist(ctx,*,args=None):
     if current_playlist['playlist']:  
         await ctx.send('Songs in the playlist:')
         song_list=get_playlist()
+        print(song_list)
         await ctx.send(song_list)  # Send the complete list to chat    
         await play_song(ctx)
     else:
         await ctx.send('No songs in the playlist')
 
+@bot.command()
+async def clear(ctx):
+    # Stop the current song
+    voice_client = ctx.guild.voice_client
+    status=check_status(ctx)
+    if STATUS.PLAYING.value in status:
+        voice_client.stop()
+
+    # Clear the playlist
+    global current_playlist
+    current_playlist['playlist'] = []
+
+    await ctx.send("The playlist has been cleared and the current song has been stopped.")
 
 @bot.command(name='show', help='Show the current playlist')
 async def show_playlist(ctx):
@@ -513,9 +534,7 @@ async def stop(ctx):
         voice_client.stop()
         should_stop = True
         await ctx.send('Stopping playback.')
-    else:
-        await ctx.send('Nothing is playing right now.')
-
+    
 # Pause command
 @bot.command(name='pause', help='Pause song')
 async def pause(ctx):
