@@ -166,8 +166,10 @@ def load_playlist(playlist_name,playlist_type):
     current_playlist['playlist_type']=playlist_type
     current_playlist['currently_playing']=0
     current_playlist['duration']=0
+    # Load the new playlist
     with open(playlist_path, 'r') as f:
         current_playlist['playlist'] = [line.rstrip() for line in f]
+        print(f"Loaded playlist {playlist_name} with {len(current_playlist['playlist'])} songs.")
         
 
 async def wait_until_done(voice_client):
@@ -446,6 +448,8 @@ async def play_playlist(ctx,*,args=None):
 
     if playlist_number != 0:
         playlist_name = playlists[playlist_number - 1].replace(ext, '')
+        ctx.invoke(bot.get_command('stop'))
+        current_playlist['playlist'] = []
         load_playlist(playlist_name,current_type)
 
         playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}{ext}")
