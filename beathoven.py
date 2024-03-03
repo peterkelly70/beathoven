@@ -580,9 +580,9 @@ async def stop(ctx):
         voice_client.stop()
         should_stop = True
         repeat = MODE.OFF
+        await ctx.send('Repeat is off.')
         await ctx.send('Stopping playback.')
-        await ctx.send('Reoeat is off.')
-    
+        
 # Pause command
 @bot.command(name='pause', help='Pause song')
 async def pause(ctx):
