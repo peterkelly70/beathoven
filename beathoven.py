@@ -262,8 +262,10 @@ async def join(ctx):
     
 @bot.command(name='leave', help='Tells the bot to leave the voice channel')
 async def leave(ctx):
+    global should_stop
     voice_client = ctx.guild.voice_client
     if voice_client:
+        should_stop=True
         await ctx.invoke(bot.get_command('stop'))
         await voice_client.disconnect()
 
@@ -418,6 +420,27 @@ async def add_to_playlist(ctx, url):
             await ctx.send(f'Invalid URL: {url}')
     except Exception as e:
         await ctx.send(f'An error occurred while adding {url} to the playlist: {e}')             
+
+@bot.command(name='remove', help='Remove a track from the playlist by its number')
+async def remove(ctx, track_number: int):
+    global current_playlist  # Use the global current_playlist
+
+    # Subtract 1 from the track number because list indices start at 0
+    track_index = track_number - 1
+
+    # Check if the track number is valid
+    if track_index < 0 or track_index >= len(current_playlist['playlist']):
+        await ctx.send('Invalid track number.')
+        return
+
+    # Remove the track from the playlist
+    removed_track = current_playlist['playlist'].pop(track_index)
+
+    await ctx.send(f'Removed track {track_number}: {removed_track}')
+
+    # If the removed track was the last one in the playlist, reset the currently playing track
+    if track_index == current_playlist['currently_playing']:
+        current_playlist['currently_playing'] = 0
 
 @bot.command(name='list', help='Show available playlists[local,radio,youtube/yt]')
 async def playlists(ctx, playlist_type=PLAYLIST_TYPE.LOCAL.value):
