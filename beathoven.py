@@ -257,6 +257,7 @@ async def play_song(ctx):
         global should_stop
         global current_playlist
         global repeat
+        global skipping
         voice_client = ctx.guild.voice_client
         index = current_playlist['currently_playing']
         playlist_type = current_playlist['playlist_type']
@@ -264,6 +265,11 @@ async def play_song(ctx):
         if should_stop:
             should_stop = False
             return
+        
+        if skipping:
+            skipping=False
+            current_playlist['currently_playing'] = current_playlist['currently_playing']
+            return  
         
         if not ctx.voice_client:
             await ctx.send("I'm not connected to a voice channel.")
@@ -559,45 +565,42 @@ async def resume(ctx):
     else:
         await ctx.send('No song is paused right now.')
 
+# Move to track
+@bot.command(name='track', help='Play a specific track')
+async def track(ctx, track_number: int):
+    global current_playlist  # Use the global current_playlist
+    global skipping
+    print(f"Destination Track number: {track_number}")
+
+    # Subtract 1 from the track number because list indices start at 0
+    track_index = track_number - 2
+
+    # Check if the track number is valid
+    if track_index < -1 or track_index >= len(current_playlist['playlist'])-1:
+        await ctx.send('Invalid track number.')
+        return
+
+    # Update the currently playing track
+    current_playlist['currently_playing'] = track_index
+    skipping = True 
+
+    # Stop the current song and play the new one
+    ctx.voice_client.stop()
+    await wait_until_done(ctx.voice_client)
+    await play_song(ctx)
+
 # Skip track
 @bot.command(name='skip', help='Skip song')
 async def skip(ctx, num_to_skip: int = 1):
     global skipping
-    # Get the voice client
-    voice_client = ctx.guild.voice_client
-    
-    # Check the status of the bot
-    status = check_status(ctx)
-    if STATUS.NOT_CONNECTED in status:
-        await ctx.send(STATUS.NOT_CONNECTED.value)
-    elif STATUS.NO_STATUS in status:
-        await ctx.send(status)
-    elif STATUS.NO_PLAYLIST in status:
-        await ctx.send(STATUS.NO_PLAYLIST.value)
-    elif STATUS.NO_SONG in status:
-        await ctx.send(STATUS.NO_SONG.value)
-    else:
-        skipping=True
-        print ("Currently Playing: ", current_playlist['currently_playing'])
-        print ("Tracks to Skip: ", num_to_skip)
-        new_index = current_playlist['currently_playing'] + num_to_skip
-        # Ensure new_index is not less than 0
-        new_index = max(0, new_index)  
-        # Ensure new_index is not greater than the last index    current_playlist['currently_playing'] = new_index
-        new_index = min(new_index, len(current_playlist['playlist']))
-        current_playlist['currently_playing']=new_index
-        print ("Next Playing: ", current_playlist['currently_playing'])
-        voice_client.stop()
-        await wait_until_done(voice_client)
-        bot.loop.create_task(play_song(ctx))
-    return
-
+    track_index = current_playlist['currently_playing'] + num_to_skip
+    await ctx.invoke(bot.get_command('track'), track_index+1)
 
 # Back, call skip with a negative number    
 @bot.command(name='back', help='Go back to a previous song')
 async def back(ctx, num_to_back: int = 1):
-    await ctx.invoke(bot.get_command('skip'),-num_to_back)
-    return
+    track_index = current_playlist['currently_playing'] - num_to_back 
+    await ctx.invoke(bot.get_command('track'),track_index+1)
 
 @bot.command(name='restart', help='Restart the current song')
 async def restart(ctx):
