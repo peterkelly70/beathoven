@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import discord
 import os
+import re
 import glob
 import traceback
 import yt_dlp
@@ -42,6 +43,7 @@ load_dotenv()
 
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 PLAYLIST_DIR = os.getenv('PLAYLIST_DIR')
+MAN_DIR = os.getenv('MAN_DIR')
 PREFIX = '!'
 intents = discord.Intents().all()
 
@@ -54,9 +56,10 @@ current_playlist = {
     "duration": 0,          # duration of current track in seconds
     "playlist_type": None   # Local, Radio or Youtube
 }
-
+access_dir = None
 current_type = PLAYLIST_TYPE.LOCAL.value
-repeat = MODE.OFF
+repeat = MODE.OFF.value
+print(f"repeat: {repeat}")
 should_stop = False # Global flag to control playback
 skipping = False # Global flag to control skipping
 keep_alive_interval = 1.0 # in seconds
@@ -111,7 +114,13 @@ def get_playlist():
             song_name = youtube.title
         else:
             song_name = os.path.basename(url)  # This removes the path detail and leaves only the song's name
-        song_list += f'{i+1}. {song_name}\n'  # Append each song to the list
+
+        # Check if the current song is the one that's playing
+        if i == current_playlist['currently_playing']:
+            song_list += f'{i+1}. **{song_name}**\n'  # Make the currently playing song bold
+        else:
+            song_list += f'{i+1}. {song_name}\n'  # Append each song to the list
+
     return song_list
     
 def convert_to_ffmpeg_time_format(seconds):
@@ -202,25 +211,9 @@ async def on_command_error(ctx, error):
 # restart stream
 async def restart_stream(voice_client, source_url):
     global stream_start_time
-    stream_elapsed_time = time.time() - stream_start_time
-    seek_time = convert_to_ffmpeg_time_format(stream_elapsed_time)
+    stream_elapsed_time = t.time()  # Reset the start time
 
-    audio_source = FFmpegPCMAudio(source_url, before_options=f'-ss {seek_time}')
-    voice_client.play(audio_source, after=lambda e: handle_stream_end(e))
-    stream_start_time = time.time()  # Reset the start time
-
-# handle play_back errors
-async def handle_playback_error(ctx, voice_client, source_url, exception):
-    print(f'Error when playing {source_url}. Reason: {exception}')
-    await restart_stream(voice_client, source_url)
-    bot.loop.create_task(play_song(ctx))
-
-# Bot commands
-
-@bot.command(name='new', help='Create a new playlist of the specified type [local, radio, youtube/yt]')
-async def new(ctx, playlist_type):
-    # Check if type is a valid playlist type
-    global current_type
+# handle play_back errorshttps://www.youtube.com/watch?v=MrxQ4eOh-yM
     playlist_type = playlist_type.lower()
     if playlist_type == 'yt':
         playlist_type = 'youtube'
@@ -274,6 +267,7 @@ async def leave(ctx):
 async def code(ctx):
     voice_client = ctx.guild.voice_client
     await ctx.send("https://github.com/peterkelly70/beathoven")
+
 
 # Play Songs
 
@@ -346,10 +340,10 @@ async def advance_song(ctx):
             should_stop = False
             return
 
-        if repeat == MODE.SONG :
+        if repeat == MODE.SONG.value :
             current_playlist['currently_playing']=current_playlist['currently_playing']
-            await ctx.send("Repeating song: "+str(current_playlist['currently_playing']))
-        elif repeat == MODE.LIST :
+            await ctx.send("Repeating song: "+tr(current_playlist['currently_playing']+1))
+        elif repeat == MODE.LIST.value :
             current_playlist["currently_playing"] = (current_playlist["currently_playing"] + 1) % len(current_playlist["playlist"])
             await ctx.send("Repeating list: "+str(current_playlist['currently_playing']))
         elif skipping:
@@ -366,6 +360,20 @@ async def advance_song(ctx):
         await play_song(ctx)
     except Exception as e:
         await ctx.send(f"Error advancing song: {str(e)}")
+
+
+@bot.command(name='new', help='Start a new yuotube playlist')
+async def new(ctx, playlist_type: str):
+    global current_playlist  # Use the global current_playlist
+
+    # Clear the current playlist
+    current_playlist['playlist'] = []
+
+    # Set the playlist type
+    current_playlist['playlist_type'] = PLAYLIST_TYPE.YOUTUBE.value
+
+    await ctx.send(f'Started a new youtube playlist.')
+
         
 @bot.command(name='yt', help='Play a youtube url')
 async def play_yt(ctx, url): 
@@ -383,24 +391,31 @@ async def play_yt(ctx, url):
     else:
         voice_client = await voice_channel.connect()
 
-    # Clear the current playlist
-    await ctx.invoke(bot.get_command('clear'))
-
     # Start a new playlist with youtube url
+    print("Starting a new playlist with youtube url")
     await ctx.invoke(bot.get_command('new'), PLAYLIST_TYPE.YOUTUBE.value)
-   
+    
     # Add the new URL to the playlist
+    print(f"Adding {url} to the playlist")
     await ctx.invoke(bot.get_command('add'), url)
     
     # Start playing the playlist
+    print("Starting to play the playlist")
     await play_song(ctx)
 
         
 @bot.command(name='add', help='Add a single url to the current playlist')
 async def add_to_playlist(ctx, url): 
-    # Check if url is valid
     global current_playlist
-    global current_type
+    
+    # Check if url is valid
+    if not url:
+        await ctx.send("No URL provided.")
+        return
+    if current_playlist['playlist_type'] != PLAYLIST_TYPE.YOUTUBE.value:
+        await ctx.send("Current playlist is not a youtube playlist.")
+        return
+       
     try:
         result = urlparse(url)
         if all([result.scheme, result.netloc, result.path]):
@@ -412,20 +427,13 @@ async def add_to_playlist(ctx, url):
                 current_type = PLAYLIST_TYPE.YOUTUBE.value
                 
             current_playlist['playlist'].append(url)
-            await ctx.send(f'Added {url} to the playlist.')
-            
-            # If the bot is not currently playing anything, start playing the added URL
-            status=check_status(ctx)
-            if STATUS.NOT_CONNECTED.value in status:
-                await ctx.send(STATUS.NOT_CONNECTED.value)
-            elif STATUS.NOT_PLAYING.value in status:
-                await ctx.invoke(bot.get_command('play_song'))
-            else:
-                await ctx.send(f'Added {url} to the playlist.')
+            youtube = YouTube(url)
+            song_name = youtube.title
+            await ctx.send(f'Added {song_name} to the playlist.')
         else:
             await ctx.send(f'Invalid URL: {url}')
     except Exception as e:
-        await ctx.send(f'An error occurred while adding {url} to the playlist: {e}')             
+        print(f'An error occurred while adding {url} to the playlist: {e}')             
 
 @bot.command(name='remove', help='Remove a track from the playlist by its number')
 async def remove(ctx, track_number: int):
@@ -441,8 +449,8 @@ async def remove(ctx, track_number: int):
 
     # Remove the track from the playlist
     removed_track = current_playlist['playlist'].pop(track_index)
-
-    await ctx.send(f'Removed track {track_number}: {removed_track}')
+    song_title=YouTube(removed_track).title
+    await ctx.send(f'Removed track {track_number}: {song_title}')
 
     # If the removed track was the last one in the playlist, reset the currently playing track
     if track_index == current_playlist['currently_playing']:
@@ -530,7 +538,6 @@ async def play_playlist(ctx,*,args=None):
         await ctx.invoke(bot.get_command('stop'))
         current_playlist['playlist'] = []
         load_playlist(playlist_name,current_type)
-        print(f"Loaded playlist {playlist_name} with {len(current_playlist['playlist'])} songs.")
 
         playlist_path = os.path.join(PLAYLIST_DIR, f"{playlist_name}{ext}")
         print(f"Playlist path: {playlist_path}")
@@ -544,6 +551,7 @@ async def play_playlist(ctx,*,args=None):
         song_list=get_playlist()
         print(song_list)
         await ctx.send(song_list)  # Send the complete list to chat    
+        await ctx.send("Repeat mode: "+str(repeat))
         await play_song(ctx)
     else:
         await ctx.send('No songs in the playlist')
@@ -564,12 +572,14 @@ async def clear(ctx):
 
 @bot.command(name='show', help='Show the current playlist')
 async def show_playlist(ctx):
+    global repeat
     if len(current_playlist['playlist']) == 0:
         await ctx.send('The playlist is currently empty.')
     else:
         await ctx.send('Songs in the playlist:')
         song_list=get_playlist()
-        await ctx.send(song_list)  # Send the complete list to chat    
+        await ctx.send(song_list)
+        await ctx.send("Repeat mode: "+str(repeat))
     
 
 def check_status(ctx):
@@ -608,7 +618,7 @@ async def stop(ctx):
     if STATUS.PLAYING.value in status:
         voice_client.stop()
         should_stop = True
-        repeat = MODE.OFF
+        repeat = MODE.OFF.value
         await ctx.send('Repeat is off.')
         await ctx.send('Stopping playback.')
         
@@ -694,14 +704,14 @@ async def repeat(ctx, mode):
     elif STATUS.NOT_PLAYING.value in status:
         await ctx.send(STATUS.NOT_PLAYING.value)
     elif MODE.OFF.value in mode: 
-        repeat = MODE.OFF
+        repeat = MODE.OFF.value
     elif MODE.SONG.value in mode:
-        repeat = MODE.SONG
+        repeat = MODE.SONG.value
     elif MODE.LIST.value in mode:
-        repeat = MODE.LIST
+        repeat = MODE.LIST.value
     else:
         await ctx.send("no such mode for Repeat [off,song,list]")
-    await ctx.send("Playback mode set: "+repeat.value)
+    await ctx.send("Playback mode set: "+repeat)
                        
 # Volume controls
 @bot.command(name='volume', help='Change Volume of song')
@@ -746,5 +756,56 @@ async def unmute(ctx):
     else:
         await ctx.send('Bot is not connected to a voice channel.')
 
-    
+
+
+
+def sort_key(filename):
+    # Extract the first number in the filename and use it as the sorting key
+    match = re.match(r'(\d+)', filename)
+    if match:
+        return int(match.group(1))
+    else:
+        return float('inf')  # If no number is found, put the file at the end
+
+@bot.command(name='man', help='Provide an in-depth overview of a specific topic')
+async def man(ctx, command=None, number=None):
+    global access_dir
+    if command is None:
+        # If no command is provided, show the .quickstart.md
+        with open(os.path.join(MAN_DIR, '.quickstart.md'), 'r') as f:
+            await ctx.send(f.read())
+    elif command == 'index':
+        # If the command is 'index', show the top headings (directories), excluding hidden ones
+        dirs = [name for name in os.listdir(MAN_DIR) if os.path.isdir(os.path.join(MAN_DIR, name)) and not name.startswith('.')]
+        await ctx.send('**Top Headings:**\n' + '\n'.join(f'{i+1}. {d}' for i, d in enumerate(sorted(dirs, key=sort_key))))
+    elif command == 'access' and number is not None:
+        # If the command is 'access' and a number is provided, store the directory to access
+        dirs = [name for name in os.listdir(MAN_DIR) if os.path.isdir(os.path.join(MAN_DIR, name)) and not name.startswith('.')]
+        try:
+            access_dir = sorted(dirs, key=sort_key)[int(number) - 1]
+            # Show the .introduction.md file in the accessed directory
+            with open(os.path.join(MAN_DIR, access_dir, '.introduction.md'), 'r') as f:
+                await ctx.send(f.read())
+            # Show the list of topic files in the accessed directory, excluding hidden ones
+            topics = [f[:-3] for f in os.listdir(os.path.join(MAN_DIR, access_dir)) if f.endswith('.md') and not f.startswith('.')]
+            await ctx.send('**Available topics:**\n' + '\n'.join(f'{i+1}. {t}' for i, t in enumerate(sorted(topics, key=sort_key))))
+        except IndexError:
+            await ctx.send(f'Invalid directory number: {number}')
+        except FileNotFoundError:
+            await ctx.send(f'No .introduction.md file found in directory: {access_dir}')
+    elif command == 'topics' and access_dir is not None:
+        # If the command is 'topics', show the list of topics in numerical order in the accessed directory
+        topics = [f[:-3] for f in os.listdir(os.path.join(MAN_DIR, access_dir)) if f.endswith('.md') and not f.startswith('.')]
+        await ctx.send('**Available topics:**\n' + '\n'.join(f'{i+1}. {t}' for i, t in enumerate(sorted(topics, key=sort_key))))
+    elif command == 'topic' and number is not None and access_dir is not None:
+        # If the command is 'topic' and a number is provided, show the corresponding file in the accessed directory
+        topics = [f for f in os.listdir(os.path.join(MAN_DIR, access_dir)) if f.endswith('.md') and not f.startswith('.')]
+        try:
+            with open(os.path.join(MAN_DIR, access_dir, sorted(topics, key=sort_key)[int(number) - 1]), 'r') as f:
+                await ctx.send(f.read())
+        except IndexError:
+            await ctx.send(f'Invalid topic number: {number}')
+    else:
+        await ctx.send('Invalid command or missing number/directory.')
+
 bot.run(TOKEN)

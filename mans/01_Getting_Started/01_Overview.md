@@ -1,0 +1,24 @@
+
+# Beathoven Discord Bot Overview
+
+## Introduction
+Beathoven enhances your music experience on Discord, allowing playlist management and music playback.
+
+## Features
+- Manage Playlists (Local, Radio, YouTube)
+- Playback Controls (Play, Pause, Skip, Volume)
+- Advanced Features (Repeat Modes)
+
+## Commands Overview
+- Basic     : `!join`, `!leave`, `!play`, `!list`,`!show`
+- Playback  : `!pause`, `!resume`, `!skip`, `!volume`
+- Playlists : `!add`, `!remove`,`!save`, `!new`
+- Management: `!clear`
+
+## Getting Started
+Invite Beathoven and ensure it has the necessary permissions.
+
+## Support and Contribution
+For support, feature requests, or contributions, 
+Please visit our [Beathoven Discord Bot GitHub Repository](https://github.com/peterkelly70/beathoven).
+

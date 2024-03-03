@@ -84,4 +84,6 @@ Roadmap
     - add logging
     - fix volume control
     - update documentation
+    - !list command - specify default is local
+    
 
