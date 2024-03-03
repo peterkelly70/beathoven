@@ -62,10 +62,9 @@ BUGS galore:
     youtube playback - The stream seems to get terminated, at random times
     volume  - volume works occasionaly
     mute/unbmute - related to volume issues? mute does nothing
-    playlists - don't handle spaces in filenames
     repeat song not working if song is last song in list
     skip restarts current song 1st time, 2nd time skips
-    The whole track skipping.back is wrong
+    
 
 Wishlist:
     logging is non existent at present.
