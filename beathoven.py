@@ -383,14 +383,14 @@ async def play_yt(ctx, url):
     else:
         voice_client = await voice_channel.connect()
 
-    # Clear the current playlist if not a youtube playlist
-    ctx.invoke(bot.get_command('clear'))
+    # Clear the current playlist
+    await ctx.invoke(bot.get_command('clear'))
 
     # Start a new playlist with youtube url
-    ctx.invoke(bot.get_command('new'), PLAYLIST_TYPE.YOUTUBE.value)
+    await ctx.invoke(bot.get_command('new'), PLAYLIST_TYPE.YOUTUBE.value)
    
     # Add the new URL to the playlist
-    ctx.invoke(bot.get_command('add'), url)
+    await ctx.invoke(bot.get_command('add'), url)
     
     # Start playing the playlist
     await play_song(ctx)
