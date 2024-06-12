@@ -302,7 +302,7 @@ async def play_song(ctx):
         # Handle YouTube URLs
             await wait_until_done(voice_client)
             stream_info, stream_url = stream_audio_from_youtube(song)
-            audio_source = play_audio_with_ffmpeg(stream_info, stream_url,start_time=0)
+            audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
             song_title = stream_info['title']
             current_playlist['duration'] = stream_info['duration']
             # stream_start_time = time.time()
