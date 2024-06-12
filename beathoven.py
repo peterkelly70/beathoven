@@ -654,7 +654,7 @@ async def track(ctx, track_number: int):
     print(f"Destination Track number: {track_number}")
 
     # Subtract 1 from the track number because list indices start at 0
-    track_index = track_number - 2
+    track_index = track_number - 1
 
     # Check if the track number is valid
     if track_index < -1 or track_index >= len(current_playlist['playlist'])-1:
