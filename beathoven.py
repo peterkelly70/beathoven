@@ -675,7 +675,7 @@ async def track(ctx, track_number: int):
 async def skip(ctx, num_to_skip: int = 1):
     global skipping
     track_index = current_playlist['currently_playing'] + num_to_skip
-    await ctx.invoke(bot.get_command('track'), track_index+1)
+    await ctx.invoke(bot.get_command('track'), track_index)
 
 # Back, call skip with a negative number    
 @bot.command(name='back', help='Go back to a previous song')
