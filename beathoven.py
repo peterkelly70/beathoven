@@ -74,14 +74,14 @@ ytdl_format_options = {
     'noplaylist': True,
     'nocheckcertificate': True,
     'ignoreerrors': True,
-    'logtostderr': False,
+    'logtostderr': True,
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
     'source_address': '0.0.0.0',  # Binding to this can help bypass some ISP restrictions
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',  # Extract audio with ffmpeg
-        'preferredcodec': 'm4a',  # Prefer m4a codec
+        'preferredcodec': 'mp3',  # Prefer mp3 codec
         'preferredquality': '192',  # Set audio quality
     }],
     'prefer_ffmpeg': True,  # Prefer ffmpeg over avconv for audio extraction
