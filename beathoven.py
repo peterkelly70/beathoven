@@ -67,12 +67,13 @@ stream_start_time = 0 # tracks stream start for stream restart
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 ytdl_format_options = {
-    'format': 'bestaudio/best[ext=m4a]',  # This should give the highest quality audio
+    #'format': 'bestaudio/best[ext=m4a]',  # This should give the highest quality audio
+    'format': 'bestaudio/best',  # This should give the highest quality audio
     'outtmpl': 'downloads/%(extractor)s-%(id)s-%(title)s.%(ext)s',  # This sets the output file path and naming convention
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
-    'ignoreerrors': False,
+    'ignoreerrors': True,
     'logtostderr': False,
     'quiet': True,
     'no_warnings': True,
