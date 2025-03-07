@@ -11,12 +11,22 @@ import asyncio
 import dotenv
 import enum
 import eyed3
+import logging
+from logging.handlers import TimedRotatingFileHandler
 from discord.ext import commands
 from discord import FFmpegPCMAudio
 from discord.ext.commands import BadArgument
 from dotenv import load_dotenv
 from enum import Enum
 from urllib.parse import urlparse
+
+# Setup logging with daily rotation
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_handler = TimedRotatingFileHandler('beathoven.log', when='midnight', interval=1, backupCount=7)
+log_handler.setFormatter(log_formatter)
+logger = logging.getLogger('Beathoven')
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
 
 class PLAYLIST_TYPE(Enum):
     LOCAL = "local"
@@ -121,13 +131,26 @@ def convert_to_ffmpeg_time_format(seconds):
     return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
 
 def stream_audio_from_youtube(url):
-    with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-        info = ydl.extract_info(url, download=False)
-        stream_url = info['url']
-    return info, stream_url
+    try:
+        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+            info = ydl.extract_info(url, download=False)
+            stream_url = info.get('url')
+            if not stream_url:
+                raise ValueError("No stream URL found in info")
+            logger.info(f"Extracted stream URL for {url}: {stream_url}")
+        return info, stream_url
+    except Exception as e:
+        logger.error(f"Error in stream_audio_from_youtube: {str(e)}")
+        raise
 
 def play_audio_with_ffmpeg(stream_info, stream_url):
-    return discord.FFmpegPCMAudio(executable="ffmpeg", source=stream_url)
+    try:
+        audio_source = discord.FFmpegPCMAudio(source=stream_url, executable="ffmpeg", **ffmpeg_options)
+        logger.info(f"Created FFmpegPCMAudio for stream: {stream_url}")
+        return audio_source
+    except Exception as e:
+        logger.error(f"Error creating FFmpegPCMAudio: {str(e)}")
+        raise
 
 def get_extension(playlist_type):
     if playlist_type == PLAYLIST_TYPE.LOCAL.value:
@@ -154,7 +177,7 @@ def load_playlist(playlist_name, playlist_type):
 
 async def wait_until_done(voice_client):
     while voice_client.is_playing() or voice_client.is_paused():
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.5)
 
 def strip_basepath(url):
     parsed_url = urlparse(url)
@@ -167,7 +190,7 @@ async def send_keep_alive():
 # Bot Events
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user.name} has connected to Discord!')
+    logger.info(f'Bot {bot.user.name} has connected to Discord!')
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!join to get started."))
     bot.loop.create_task(send_keep_alive())
 
@@ -177,6 +200,7 @@ async def on_command_error(ctx, error):
         await ctx.send(f"Bad argument: {error}\nUse !help command to see the correct usage.")
     else:
         await ctx.send(f"An error occurred: {error}")
+        logger.error(f"Command error: {str(error)}")
 
 async def play_song(ctx):
     try:
@@ -185,50 +209,70 @@ async def play_song(ctx):
         
         if not voice_client:
             await ctx.send("Not connected to a voice channel.")
+            logger.warning("Voice client not connected.")
             return
             
         if should_stop:
             should_stop = False
+            logger.info("Playback stopped by should_stop flag.")
             return
             
         if skipping:
             skipping = False
+            logger.info("Skipping to next track.")
             
         index = current_playlist['currently_playing']
         if not (0 <= index < len(current_playlist['playlist'])):
             await ctx.send("Invalid playlist position.")
+            logger.warning(f"Invalid playlist index: {index}")
             return await ctx.invoke(bot.get_command('stop'))
 
         song = current_playlist['playlist'][index]
         song_title = ""
         
+        logger.info(f"Attempting to play song #{index + 1}: {song}")
+        
         if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value:
-            stream_info, stream_url = stream_audio_from_youtube(song)
-            audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
-            song_title = stream_info.get('title', f"Unknown Title ({song})")
-            current_playlist['duration'] = stream_info['duration']
-            voice_client.play(audio_source, after=lambda e: bot.loop.create_task(
-                advance_song(ctx) if not e else handle_playback_error(ctx, voice_client, stream_url, e)))
+            try:
+                stream_info, stream_url = stream_audio_from_youtube(song)
+                audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
+                song_title = stream_info.get('title', f"Unknown Title ({song})")
+                current_playlist['duration'] = stream_info.get('duration', 0)
+                voice_client.play(audio_source, after=lambda e: bot.loop.create_task(
+                    handle_playback_error(ctx, voice_client, stream_url, e) if e else advance_song(ctx)))
+                logger.info(f"Started YouTube playback: {song_title} (Duration: {current_playlist['duration']}s)")
+            except Exception as e:
+                await ctx.send(f"Failed to stream YouTube video: {str(e)}")
+                logger.error(f"YouTube streaming error: {str(e)}")
+                return await advance_song(ctx)
             
         elif current_playlist['playlist_type'] == PLAYLIST_TYPE.RADIO.value:
             song_title = song
             voice_client.play(discord.FFmpegPCMAudio(source=song), 
                             after=lambda e: bot.loop.create_task(advance_song(ctx)))
+            logger.info(f"Playing radio stream: {song}")
                             
         else:  # Local files
             song_title = strip_basepath(song)
+            if not os.path.exists(song):
+                await ctx.send(f"Local file not found: {song}")
+                logger.warning(f"File not found: {song}")
+                return
             voice_client.play(discord.FFmpegPCMAudio(source=song),
                             after=lambda e: bot.loop.create_task(advance_song(ctx)))
+            logger.info(f"Playing local file: {song}")
                             
         await ctx.send(f'**Now playing:** {song_title} (#{index + 1}/{len(current_playlist["playlist"])})')
+        logger.info(f"Playback message sent for: {song_title}")
         
     except Exception as e:
-        print(f'Error in play_song: {str(e)}')
-        print(traceback.format_exc())
+        logger.error(f'Error in play_song: {str(e)}')
+        logger.error(traceback.format_exc())
         await ctx.send(f"Error playing song #{index + 1}: {str(e)}")
 
 async def handle_playback_error(ctx, voice_client, stream_url, error):
     await ctx.send(f"Playback error: {str(error)}")
+    logger.error(f"Playback error occurred: {str(error)}")
     await advance_song(ctx)
 
 async def advance_song(ctx):
@@ -237,33 +281,41 @@ async def advance_song(ctx):
         
         if not current_playlist["playlist"]:
             await ctx.send("Playlist is empty.")
+            logger.warning("Playlist is empty.")
             return
             
         if should_stop:
             should_stop = False
+            logger.info("Advancing stopped by should_stop flag.")
             return
 
         voice_client = ctx.guild.voice_client
         if not voice_client:
+            logger.warning("Voice client disconnected during advance.")
             return
 
         if repeat == MODE.SONG.value:
             await ctx.send(f"Repeating song #{current_playlist['currently_playing'] + 1}")
+            logger.info(f"Repeat song mode: #{current_playlist['currently_playing'] + 1}")
         elif repeat == MODE.LIST.value:
             current_playlist["currently_playing"] = (current_playlist["currently_playing"] + 1) % len(current_playlist["playlist"])
             await ctx.send(f"Playing next song in list: #{current_playlist['currently_playing'] + 1}")
+            logger.info(f"Repeat list mode: advancing to #{current_playlist['currently_playing'] + 1}")
         else:  # MODE.OFF
             current_playlist["currently_playing"] += 1
             if current_playlist["currently_playing"] >= len(current_playlist["playlist"]):
                 await ctx.send("Playlist has ended.")
+                logger.info("Playlist has ended.")
                 current_playlist["currently_playing"] = 0
                 repeat = MODE.OFF.value
                 return await ctx.invoke(bot.get_command('stop'))
 
         skipping = False
+        logger.info(f"Advancing to song #{current_playlist['currently_playing'] + 1}")
         await play_song(ctx)
         
     except Exception as e:
+        logger.error(f"Error in advance_song: {str(e)}")
         await ctx.send(f"Error advancing song: {str(e)}")
 
 @bot.command(name='join', help='Tells the bot to join the voice channel')
@@ -273,9 +325,11 @@ async def join(ctx):
         return
     channel = ctx.author.voice.channel
     if ctx.voice_client is not None:
-        return await ctx.voice_client.move_to(channel)
-    await channel.connect()
+        await ctx.voice_client.move_to(channel)
+    else:
+        await channel.connect()
     await ctx.send(f"I'm Beathoven, I've joined {channel} and I'm ready to play some music!\nType !help for commands.")
+    logger.info(f"Joined voice channel: {channel.name}")
 
 @bot.command(name='leave', help='Tells the bot to leave the voice channel')
 async def leave(ctx):
@@ -285,6 +339,7 @@ async def leave(ctx):
         should_stop = True
         await ctx.invoke(bot.get_command('stop'))
         await voice_client.disconnect()
+        logger.info("Left voice channel.")
 
 @bot.command(name='code', help='Where do I get this awesome code?')
 async def code(ctx):
@@ -303,6 +358,7 @@ async def new(ctx, playlist_type: str):
     current_playlist['playlist_type'] = playlist_type
     current_playlist['currently_playing'] = 0
     await ctx.send(f'Started a new {playlist_type} playlist.')
+    logger.info(f"Started new {playlist_type} playlist.")
 
 @bot.command(name='yt', help='Play a youtube url')
 async def play_yt(ctx, url): 
@@ -349,9 +405,11 @@ async def add_to_playlist(ctx, url):
 
         current_playlist['playlist'].append(url)
         await ctx.send(f'Added {song_name} to the playlist.')
+        logger.info(f"Added {song_name} to playlist: {url}")
         
     except Exception as e:
         await ctx.send(f'Error adding {url} to the playlist: {str(e)}')
+        logger.error(f"Error adding {url} to playlist: {str(e)}")
 
 @bot.command(name='remove', help='Remove a track from the playlist by its number')
 async def remove(ctx, track_number: int):
@@ -370,6 +428,7 @@ async def remove(ctx, track_number: int):
     else:
         song_title = strip_basepath(removed_track)
     await ctx.send(f'Removed track {track_number}: {song_title}')
+    logger.info(f"Removed track {track_number}: {song_title}")
 
     if track_index <= current_playlist['currently_playing']:
         current_playlist['currently_playing'] = max(0, current_playlist['currently_playing'] - 1)
@@ -451,6 +510,7 @@ async def clear(ctx):
     current_playlist['playlist'] = []
     current_playlist['currently_playing'] = 0
     await ctx.send("The playlist has been cleared and the current song has been stopped.")
+    logger.info("Playlist cleared.")
 
 @bot.command(name='show', help='Show the current playlist')
 async def show_playlist(ctx):
@@ -496,6 +556,7 @@ async def stop(ctx):
         repeat = MODE.OFF.value
         await ctx.send('Repeat is off.')
         await ctx.send('Stopping playback.')
+        logger.info("Playback stopped.")
 
 @bot.command(name='pause', help='Pause song')
 async def pause(ctx):
@@ -504,6 +565,7 @@ async def pause(ctx):
     if STATUS.PLAYING.value in status:
         voice_client.pause()
         await ctx.send('Playback paused.')
+        logger.info("Playback paused.")
     else:
         await ctx.send('Nothing is playing right now.')
 
@@ -514,6 +576,7 @@ async def resume(ctx):
     if STATUS.PAUSED.value in status:
         voice_client.resume()
         await ctx.send('Playback resumed.')
+        logger.info("Playback resumed.")
     else:
         await ctx.send('No song is paused right now.')
 
@@ -534,6 +597,7 @@ async def track(ctx, track_number: int):
         voice_client.stop()
     await wait_until_done(voice_client)
     await play_song(ctx)
+    logger.info(f"Switched to track #{track_number}")
 
 @bot.command(name='skip', help='Skip forward n songs (default 1)')
 async def skip(ctx, num_to_skip: int = 1):
@@ -567,6 +631,7 @@ async def restart(ctx):
         voice_client.stop()
         await wait_until_done(voice_client)
         await play_song(ctx)
+        logger.info("Restarted current song.")
 
 @bot.command(name='repeat', help='Set repeat mode: off, song, or list')
 async def repeat_command(ctx, mode: str):
@@ -595,6 +660,7 @@ async def repeat_command(ctx, mode: str):
         return
     
     await ctx.send(f"Current repeat mode: {repeat}")
+    logger.info(f"Repeat mode set to: {repeat}")
 
 @bot.command(name='volume', help='Change Volume of song')
 async def volume(ctx, vol: int):
@@ -607,6 +673,7 @@ async def volume(ctx, vol: int):
     
     voice.source.volume = vol / 100
     await ctx.send(f'Volume set to {vol}%.')
+    logger.info(f"Volume set to {vol}%")
 
 @bot.command(name='mute', help='Mute the bot')
 async def mute(ctx):
@@ -616,6 +683,7 @@ async def mute(ctx):
         previous_volume = voice.source.volume
         voice.source.volume = 0.0
         await ctx.send('Muted.')
+        logger.info("Bot muted.")
     else:
         await ctx.send('Bot is not connected to a voice channel.')
 
@@ -625,6 +693,7 @@ async def unmute(ctx):
     if voice:
         voice.source.volume = previous_volume
         await ctx.send('Unmuted.')
+        logger.info("Bot unmuted.")
     else:
         await ctx.send('Bot is not connected to a voice channel.')
 
@@ -637,6 +706,19 @@ async def save(ctx, playlist_name):
         for song in current_playlist['playlist']:
             f.write(f"{song}\n")
     await ctx.send(f'Saved the current playlist to {filename}.')
+    logger.info(f"Saved playlist to {filename}")
+
+@bot.command(name='status', help='Check bot connection status')
+async def status(ctx):
+    voice_client = ctx.guild.voice_client
+    if not voice_client:
+        await ctx.send("Not connected to a voice channel.")
+        logger.info("Status: Not connected")
+    else:
+        await ctx.send(f"Connected to {voice_client.channel.name}")
+        logger.info(f"Status: Connected to {voice_client.channel.name}")
+        logger.info(f"Playing: {voice_client.is_playing()}")
+        logger.info(f"Paused: {voice_client.is_paused()}")
 
 def sort_key(filename):
     match = re.match(r'(\d+)', filename)
