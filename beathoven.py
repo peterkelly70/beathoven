@@ -96,7 +96,8 @@ ytdl_format_options = {
 }
 
 ffmpeg_options = {
-    'options': '-vn'
+    'options': '-vn',
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'  # Ensure FFmpeg reconnects
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
@@ -112,9 +113,16 @@ def get_playlist():
     song_list = ""
     for i, url in enumerate(current_playlist['playlist']):
         if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value:
-            with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-                info = ydl.extract_info(url, download=False)
-                song_name = info.get('title', f"Unknown Title ({url})")
+            try:
+                with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    if info is None:
+                        song_name = f"Unavailable ({url})"
+                    else:
+                        song_name = info.get('title', f"Unknown Title ({url})")
+            except Exception as e:
+                logger.error(f"Error getting title for {url}: {str(e)}")
+                song_name = f"Error Retrieving Title ({url})"
         else:
             song_name = os.path.basename(url)
         
@@ -134,14 +142,16 @@ def stream_audio_from_youtube(url):
     try:
         with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
             info = ydl.extract_info(url, download=False)
+            if info is None:
+                raise ValueError("No info extracted from yt_dlp")
             stream_url = info.get('url')
             if not stream_url:
                 raise ValueError("No stream URL found in info")
             logger.info(f"Extracted stream URL for {url}: {stream_url}")
         return info, stream_url
     except Exception as e:
-        logger.error(f"Error in stream_audio_from_youtube: {str(e)}")
-        raise
+        logger.error(f"Error in stream_audio_from_youtube for {url}: {str(e)}")
+        return None, None
 
 def play_audio_with_ffmpeg(stream_info, stream_url):
     try:
@@ -172,8 +182,12 @@ def load_playlist(playlist_name, playlist_type):
     current_playlist['playlist_type'] = playlist_type
     current_playlist['currently_playing'] = 0
     current_playlist['duration'] = 0
-    with open(playlist_path, 'r') as f:
-        current_playlist['playlist'] = [line.rstrip() for line in f]
+    try:
+        with open(playlist_path, 'r') as f:
+            current_playlist['playlist'] = [line.rstrip() for line in f]
+    except FileNotFoundError:
+        logger.error(f"Playlist file not found: {playlist_path}")
+        raise
 
 async def wait_until_done(voice_client):
     while voice_client.is_playing() or voice_client.is_paused():
@@ -233,14 +247,25 @@ async def play_song(ctx):
         logger.info(f"Attempting to play song #{index + 1}: {song}")
         
         if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value:
+            stream_info, stream_url = stream_audio_from_youtube(song)
+            if stream_info is None or stream_url is None:
+                await ctx.send(f"Failed to retrieve stream for {song}. Skipping...")
+                logger.error(f"Stream info or URL is None for {song}")
+                return await advance_song(ctx)
             try:
-                stream_info, stream_url = stream_audio_from_youtube(song)
                 audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
                 song_title = stream_info.get('title', f"Unknown Title ({song})")
                 current_playlist['duration'] = stream_info.get('duration', 0)
                 voice_client.play(audio_source, after=lambda e: bot.loop.create_task(
                     handle_playback_error(ctx, voice_client, stream_url, e) if e else advance_song(ctx)))
                 logger.info(f"Started YouTube playback: {song_title} (Duration: {current_playlist['duration']}s)")
+                # Wait briefly to ensure playback starts
+                await asyncio.sleep(2)
+                if not voice_client.is_playing():
+                    logger.warning(f"Playback not started for {song_title}")
+                    await ctx.send(f"Playback failed to start for {song_title}. Skipping...")
+                    voice_client.stop()
+                    return await advance_song(ctx)
             except Exception as e:
                 await ctx.send(f"Failed to stream YouTube video: {str(e)}")
                 logger.error(f"YouTube streaming error: {str(e)}")
@@ -401,6 +426,8 @@ async def add_to_playlist(ctx, url):
                 
         with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
             info = ydl.extract_info(url, download=False)
+            if info is None:
+                raise ValueError("Failed to extract info from URL")
             song_name = info.get('title', f"Unknown Title ({url})")
 
         current_playlist['playlist'].append(url)
@@ -422,9 +449,13 @@ async def remove(ctx, track_number: int):
 
     removed_track = current_playlist['playlist'].pop(track_index)
     if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value:
-        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-            info = ydl.extract_info(removed_track, download=False)
-            song_title = info.get('title', f"Unknown Title ({removed_track})")
+        try:
+            with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+                info = ydl.extract_info(removed_track, download=False)
+                song_title = info.get('title', f"Unknown Title ({removed_track})") if info else f"Unavailable ({removed_track})"
+        except Exception as e:
+            song_title = f"Error Retrieving Title ({removed_track})"
+            logger.error(f"Error getting title for removed track {removed_track}: {str(e)}")
     else:
         song_title = strip_basepath(removed_track)
     await ctx.send(f'Removed track {track_number}: {song_title}')
