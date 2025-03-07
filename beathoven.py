@@ -17,7 +17,6 @@ from discord.ext.commands import BadArgument
 from dotenv import load_dotenv
 from enum import Enum
 from urllib.parse import urlparse
-from pytube import YouTube
 
 class PLAYLIST_TYPE(Enum):
     LOCAL = "local"
@@ -103,8 +102,9 @@ def get_playlist():
     song_list = ""
     for i, url in enumerate(current_playlist['playlist']):
         if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value:
-            youtube = YouTube(url)
-            song_name = youtube.title
+            with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+                info = ydl.extract_info(url, download=False)
+                song_name = info.get('title', f"Unknown Title ({url})")
         else:
             song_name = os.path.basename(url)
         
@@ -205,7 +205,7 @@ async def play_song(ctx):
         if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value:
             stream_info, stream_url = stream_audio_from_youtube(song)
             audio_source = play_audio_with_ffmpeg(stream_info, stream_url)
-            song_title = stream_info['title']
+            song_title = stream_info.get('title', f"Unknown Title ({song})")
             current_playlist['duration'] = stream_info['duration']
             voice_client.play(audio_source, after=lambda e: bot.loop.create_task(
                 advance_song(ctx) if not e else handle_playback_error(ctx, voice_client, stream_url, e)))
@@ -290,7 +290,7 @@ async def leave(ctx):
 async def code(ctx):
     await ctx.send("https://github.com/peterkelly70/beathoven")
 
-@bot.command(name='new', help='Start a new youtube playlist')
+@bot.command(name='new', help='Start a new playlist')
 async def new(ctx, playlist_type: str):
     global current_playlist
     playlist_type = playlist_type.lower()
@@ -333,21 +333,25 @@ async def add_to_playlist(ctx, url):
         
     try:
         result = urlparse(url)
-        if all([result.scheme, result.netloc, result.path]):
-            if current_playlist['playlist_type'] is None:
-                current_playlist['playlist_type'] = PLAYLIST_TYPE.YOUTUBE.value
-            elif current_playlist['playlist_type'] != PLAYLIST_TYPE.YOUTUBE.value:
-                await ctx.send("Current playlist is not a youtube playlist.")
-                return
-                
-            current_playlist['playlist'].append(url)
-            youtube = YouTube(url)
-            song_name = youtube.title
-            await ctx.send(f'Added {song_name} to the playlist.')
-        else:
+        if not all([result.scheme, result.netloc, result.path]):
             await ctx.send(f'Invalid URL: {url}')
+            return
+
+        if current_playlist['playlist_type'] is None:
+            current_playlist['playlist_type'] = PLAYLIST_TYPE.YOUTUBE.value
+        elif current_playlist['playlist_type'] != PLAYLIST_TYPE.YOUTUBE.value:
+            await ctx.send("Current playlist is not a youtube playlist.")
+            return
+                
+        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+            info = ydl.extract_info(url, download=False)
+            song_name = info.get('title', f"Unknown Title ({url})")
+
+        current_playlist['playlist'].append(url)
+        await ctx.send(f'Added {song_name} to the playlist.')
+        
     except Exception as e:
-        await ctx.send(f'Error adding {url} to the playlist: {e}')
+        await ctx.send(f'Error adding {url} to the playlist: {str(e)}')
 
 @bot.command(name='remove', help='Remove a track from the playlist by its number')
 async def remove(ctx, track_number: int):
@@ -359,7 +363,12 @@ async def remove(ctx, track_number: int):
         return
 
     removed_track = current_playlist['playlist'].pop(track_index)
-    song_title = YouTube(removed_track).title if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value else strip_basepath(removed_track)
+    if current_playlist['playlist_type'] == PLAYLIST_TYPE.YOUTUBE.value:
+        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+            info = ydl.extract_info(removed_track, download=False)
+            song_title = info.get('title', f"Unknown Title ({removed_track})")
+    else:
+        song_title = strip_basepath(removed_track)
     await ctx.send(f'Removed track {track_number}: {song_title}')
 
     if track_index <= current_playlist['currently_playing']:
