@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beathoven Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .dashboard {
+            display: flex;
+            height: 100vh;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #2a2a2a;
+            padding: 20px;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .app-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 15px;
+        }
+
+        .app-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 5px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #333;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .tab.active {
+            background: #444;
+            color: #fff;
+        }
+        
+        .playlist-list {
+            margin-bottom: 20px;
+            overflow-y: auto;
+            max-height: 70vh;
+        }
+        
+        .playlist-item {
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .playlist-item:hover {
+            background: #333;
+        }
+        
+        .playlist-item.active {
+            background: #444;
+        }
+        
+        .playlist-info h3 {
+            margin: 0;
+            font-size: 14px;
+        }
+        
+        .track-count {
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .track-duration {
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        .control-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .control-btn:hover {
+            background: #333;
+        }
+        
+        .control-btn.active {
+            color: #1db954;
+        }
+        
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .track-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-radius: 4px;
+            background: #2a2a2a;
+            gap: 15px;
+        }
+        
+        .track-item:hover {
+            background: #333;
+        }
+        
+        .track-item.active {
+            background: #444;
+        }
+        
+        .play-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        
+        .play-btn:hover {
+            background: #444;
+        }
+        
+        .track-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .track-title {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .track-artist {
+            color: #888;
+            font-size: 12px;
+        }
+        
+        #current-track-info {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+        
+        #current-track-info h3 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+        }
+        
+        #current-track-info p {
+            margin: 0;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+        }
+        
+        .delete-btn:hover {
+            background: #333;
+        }
+        
+        .add-playlist-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .add-playlist-btn:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="app-header">
+                <img src="{{ url_for('static', filename='images/beathoven_icon.png') }}" alt="Beathoven" class="app-icon">
+                <h1 class="app-title">Beathoven</h1>
+            </div>
+            <div class="tabs">
+                <button class="tab active" onclick="showPlaylistType('local')">Local</button>
+                <button class="tab" onclick="showPlaylistType('youtube')">YouTube</button>
+                <button class="tab" onclick="showPlaylistType('radio')">Radio</button>
+            </div>
+            
+            <div class="playlist-list" id="local-playlists">
+                {% for playlist in playlists %}
+                {% if playlist.type == 'local' %}
+                <div class="playlist-item" data-name="{{ playlist.name }}" onclick="playPlaylist('{{ playlist.name }}')">
+                    <span class="playlist-name">{{ playlist.name }}</span>
+                    <button class="delete-btn" onclick="deletePlaylist(event, '{{ playlist.name }}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            
+            <div class="playlist-list" id="youtube-playlists" style="display: none;">
+                {% for playlist in playlists %}
+                {% if playlist.type == 'youtube' %}
+                <div class="playlist-item" data-name="{{ playlist.name }}" onclick="playPlaylist('{{ playlist.name }}')">
+                    <span class="playlist-name">{{ playlist.name }}</span>
+                    <button class="delete-btn" onclick="deletePlaylist(event, '{{ playlist.name }}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            
+            <div class="playlist-list" id="radio-playlists" style="display: none;">
+                {% for playlist in playlists %}
+                {% if playlist.type == 'radio' %}
+                <div class="playlist-item" data-name="{{ playlist.name }}" onclick="playPlaylist('{{ playlist.name }}')">
+                    <span class="playlist-name">{{ playlist.name }}</span>
+                    <button class="delete-btn" onclick="deletePlaylist(event, '{{ playlist.name }}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            
+            <button class="add-playlist-btn" onclick="showAddPlaylistModal()">
+                <i class="fas fa-plus"></i> Add Playlist
+            </button>
+        </div>
+        
+        <div class="main-content">
+            <div class="controls">
+                <button class="control-btn" onclick="previousTrack()" title="Previous">
+                    <i class="fas fa-backward"></i>
+                </button>
+                <button class="control-btn" onclick="startPlayback()" title="Play">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="control-btn" onclick="pausePlayback()" title="Pause" style="display: none;">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button class="control-btn" onclick="nextTrack()" title="Next">
+                    <i class="fas fa-forward"></i>
+                </button>
+                <button class="control-btn" onclick="stopPlayback()" title="Stop">
+                    <i class="fas fa-stop"></i>
+                </button>
+                <button class="control-btn" onclick="setRepeatMode('none')" title="No Repeat" data-mode="none">
+                    <i class="fas fa-times"></i>
+                </button>
+                <button class="control-btn" onclick="setRepeatMode('one')" title="Repeat One" data-mode="one">
+                    <i class="fas fa-1"></i>
+                </button>
+                <button class="control-btn" onclick="setRepeatMode('all')" title="Repeat All" data-mode="all">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </div>
+            
+            <div id="current-track-info">
+                <p>No track playing</p>
+            </div>
+            
+            <div class="track-list">
+                {% if current_playlist %}
+                {% for track in current_playlist.tracks %}
+                <div class="track-item" data-url="{{ track.url }}">
+                    <button class="play-btn" onclick="playTrack('{{ track.url }}')">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <div class="track-info">
+                        <div class="track-title">{{ track.title }}</div>
+                        {% if track.artist %}
+                        <div class="track-artist">{{ track.artist }}</div>
+                        {% endif %}
+                        {% if track.duration %}
+                        <div class="track-duration">{{ (track.duration / 60)|int }}:{{ '%02d'|format(track.duration % 60) }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p>No playlist selected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = '{{ session_id }}';
+        let audio = new Audio();
+        let currentState = {
+            is_playing: false,
+            is_paused: false,
+            current_track: null,
+            volume: 100,
+            repeat_mode: 'none'
+        };
+
+        // Validate session periodically
+        async function validateSession() {
+            try {
+                const response = await fetch(`/api/sessions/${sessionId}/validate`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    // Session expired, reload page
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Session validation error:', error);
+            }
+        }
+        
+        // Check session every 30 seconds
+        setInterval(validateSession, 30000);
+
+        function showPlaylistType(type) {
+            document.querySelectorAll('.playlist-list').forEach(list => list.style.display = 'none');
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(`${type}-playlists`).style.display = 'block';
+            document.querySelector(`.tab[onclick="showPlaylistType('${type}')"]`).classList.add('active');
+        }
+        
+        function updatePlayerUI(state) {
+            // Update play/pause button
+            const playBtn = document.querySelector('.control-btn[title="Play"]');
+            const pauseBtn = document.querySelector('.control-btn[title="Pause"]');
+            if (state.is_playing && !state.is_paused) {
+                playBtn.style.display = 'none';
+                pauseBtn.style.display = 'inline-block';
+            } else {
+                playBtn.style.display = 'inline-block';
+                pauseBtn.style.display = 'none';
+            }
+            
+            // Update current track display
+            const trackInfo = document.getElementById('current-track-info');
+            if (state.current_track) {
+                let html = `<div class="track-title">${state.current_track.title}</div>`;
+                if (state.current_track.artist) {
+                    html += `<div class="track-artist">${state.current_track.artist}</div>`;
+                }
+                if (state.current_track.duration) {
+                    const minutes = Math.floor(state.current_track.duration / 60);
+                    const seconds = String(state.current_track.duration % 60).padStart(2, '0');
+                    html += `<div class="track-duration">${minutes}:${seconds}</div>`;
+                }
+                trackInfo.innerHTML = html;
+            } else {
+                trackInfo.innerHTML = '<p>No track playing</p>';
+            }
+            
+            // Update volume
+            const volumeSlider = document.getElementById('volume-slider');
+            if (volumeSlider) volumeSlider.value = state.volume;
+            
+            // Update repeat mode
+            document.querySelectorAll('.control-btn[data-mode]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === state.repeat_mode);
+            });
+            
+            // Update playlist selection
+            document.querySelectorAll('.playlist-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.name === state.current_playlist?.name);
+            });
+            
+            // Update track list
+            document.querySelectorAll('.track-item').forEach(item => {
+                const isCurrentTrack = state.current_track && item.dataset.url === state.current_track.url;
+                item.classList.toggle('active', isCurrentTrack);
+                
+                // Update play button icon
+                const playBtn = item.querySelector('.play-btn i');
+                if (isCurrentTrack && state.is_playing && !state.is_paused) {
+                    playBtn.className = 'fas fa-volume-up';
+                } else {
+                    playBtn.className = 'fas fa-play';
+                }
+            });
+        }
+        
+        async function updatePlayerState() {
+            try {
+                const response = await fetch('/api/player/state');
+                const state = await response.json();
+                
+                // Update current state
+                currentState = state;
+                
+                // Update UI
+                updatePlayerUI(state);
+                
+                // Update audio source if needed
+                if (state.current_track && state.current_track.url !== audio.src) {
+                    audio.src = state.current_track.url;
+                }
+                
+                // Update audio state
+                if (state.is_playing && !state.is_paused && audio.paused) {
+                    audio.play();
+                } else if (!state.is_playing || state.is_paused) {
+                    audio.pause();
+                }
+                
+                // Update volume
+                audio.volume = state.volume / 100;
+                
+                // Reload page if playlist changed
+                if (state.current_playlist?.name !== currentState.current_playlist?.name) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Error updating player state:', error);
+            }
+        }
+        
+        async function startPlayback() {
+            await fetch('/api/player/play', { method: 'POST' });
+            updatePlayerState();
+        }
+        
+        async function pausePlayback() {
+            await fetch('/api/player/pause', { method: 'POST' });
+            updatePlayerState();
+        }
+        
+        async function stopPlayback() {
+            await fetch('/api/player/stop', { method: 'POST' });
+            updatePlayerState();
+        }
+        
+        async function previousTrack() {
+            await fetch('/api/player/previous', { method: 'POST' });
+            updatePlayerState();
+        }
+        
+        async function nextTrack() {
+            await fetch('/api/player/next', { method: 'POST' });
+            updatePlayerState();
+        }
+        
+        async function setRepeatMode(mode) {
+            await fetch('/api/player/repeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode })
+            });
+            updatePlayerState();
+        }
+        
+        async function playPlaylist(name) {
+            try {
+                const response = await fetch(`/api/playlists/${name}/play`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Error playing playlist:', data.error);
+                    return;
+                }
+                
+                // Update UI immediately
+                document.querySelectorAll('.playlist-item').forEach(item => {
+                    item.classList.toggle('active', item.dataset.name === name);
+                });
+                
+                // Clear and populate track list
+                const trackList = document.querySelector('.track-list');
+                trackList.innerHTML = data.tracks.length ? 
+                    data.tracks.map(track => `
+                        <div class="track-item" data-url="${track.url}">
+                            <button class="play-btn" onclick="playTrack('${track.url}')">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <div class="track-info">
+                                <div class="track-title">${track.title}</div>
+                                ${track.artist ? `<div class="track-artist">${track.artist}</div>` : ''}
+                                ${track.duration ? `<div class="track-duration">${Math.floor(track.duration/60)}:${String(track.duration%60).padStart(2,'0')}</div>` : ''}
+                            </div>
+                        </div>
+                    `).join('') : '<p>No tracks in playlist</p>';
+                
+                // Update player state
+                updatePlayerState();
+            } catch (error) {
+                console.error('Error playing playlist:', error);
+            }
+        }
+        
+        async function playTrack(trackId) {
+            await fetch(`/api/tracks/${trackId}/play`, { method: 'POST' });
+            updatePlayerState();
+        }
+        
+        async function deletePlaylist(event, name) {
+            event.stopPropagation();  // Don't trigger playlist click
+            
+            // Prompt for admin password
+            const password = prompt("Enter admin password to delete playlist:");
+            if (!password) return;
+            
+            try {
+                const response = await fetch(`/api/playlists/${name}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ admin_password: password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Remove playlist from UI
+                    const item = document.querySelector(`.playlist-item[data-name="${name}"]`);
+                    if (item) {
+                        item.remove();
+                    }
+                } else {
+                    alert(data.error || 'Failed to delete playlist');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to delete playlist');
+            }
+        }
+        
+        // Initial state update
+        updatePlayerState();
+        
+        // Update state every 2 seconds
+        setInterval(updatePlayerState, 2000);
+        
+        // Handle audio events
+        audio.addEventListener('ended', async () => {
+            await nextTrack();
+        });
+        
+        audio.addEventListener('error', (e) => {
+            console.error('Audio playback error:', e);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+/* Custom dark theme styles */
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+}
+
+.card {
+    background-color: #1e1e1e;
+    border-color: #2d2d2d;
+}
+
+.card-header {
+    background-color: #303030;
+    border-bottom-color: #3a3a3a;
+}
+
+/* Tabs styling */
+.nav-tabs {
+    border-bottom-color: #3a3a3a;
+}
+
+.nav-tabs .nav-link {
+    color: #e0e0e0;
+    border: none;
+    padding: 8px 16px;
+    margin-right: 4px;
+    border-radius: 4px 4px 0 0;
+}
+
+.nav-tabs .nav-link:hover {
+    background-color: #404040;
+    border-color: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: #e0e0e0;
+    background-color: #404040;
+    border-color: #3a3a3a;
+    border-bottom-color: transparent;
+}
+
+.list-group-item {
+    background-color: #1e1e1e;
+    border-color: #2d2d2d;
+    color: #e0e0e0;
+}
+
+.list-group-item:hover {
+    background-color: #2d2d2d;
+}
+
+.list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-control, .form-select {
+    background-color: #2d2d2d;
+    border-color: #3d3d3d;
+    color: #e0e0e0;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: #2d2d2d;
+    border-color: #0d6efd;
+    color: #e0e0e0;
+}
+
+.volume-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    margin: 0 auto;
+}
+
+.progress {
+    background-color: #2d2d2d;
+}
+
+/* Playlist type badges */
+.badge.bg-local {
+    background-color: #198754;
+}
+
+.badge.bg-youtube {
+    background-color: #dc3545;
+}
+
+.badge.bg-radio {
+    background-color: #0dcaf0;
+}
+
+/* Control buttons */
+.btn-group {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-group .btn {
+    min-width: 44px;
+}
+
+/* Button styling and hover effects */
+.btn {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Playlist and track play buttons */
+.play-btn:hover, .delete-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Player controls */
+.player-controls .btn {
+    transition: all 0.2s ease;
+}
+
+.player-controls .btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Track items with play button */
+.track-item {
+    cursor: pointer;
+    padding: 8px 12px;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.track-item:hover {
+    background-color: #303030;
+    transform: translateX(3px);
+}
+
+.track-item.active {
+    background-color: #3a3a3a;
+    border-left: 3px solid #0d6efd;
+}
+
+.track-item .track-name {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 10px;
+}
+
+.track-item .play-btn {
+    color: #0d6efd;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.track-item .play-btn:hover {
+    background-color: rgba(13, 110, 253, 0.2);
+}
+
+.track-item .track-number {
+    margin-right: 10px;
+    color: #888;
+    min-width: 20px;
+    text-align: right;
+}
+
+/* Card header with playlist title */
+.card-header .playlist-title {
+    font-weight: 500;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Repeat mode buttons */
+.repeat-controls {
+    margin-left: 10px;
+}
+
+.repeat-controls .btn {
+    min-width: 40px;
+    color: #aaa;
+}
+
+.repeat-controls .btn.active {
+    color: #0d6efd;
+}
+
+/* Active playlist highlight */
+.list-group-item.playlist-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Track list animations */
+.list-group-item {
+    transition: background-color 0.2s ease;
+}
+
+/* Now playing animation */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.now-playing {
+    animation: pulse 2s infinite;
+    padding-left: 1rem;
+    position: relative;
+}
+
+.now-playing::before {
+    content: '▶';
+    position: absolute;
+    left: 0;
+    color: #0d6efd;
+}
+
+/* Track selection styles */
+.track-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.track-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.track-item.selected {
+    background-color: rgba(0, 123, 255, 0.1);
+    border-left: 3px solid #007bff;
+}
+
+.track-item.playing {
+    background-color: rgba(40, 167, 69, 0.1);
+    border-left: 3px solid #28a745;
+}
+
+.track-item.selected.playing {
+    background-color: rgba(0, 123, 255, 0.15);
+    border-left: 3px solid #007bff;
+}
