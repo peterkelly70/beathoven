@@ -65,11 +65,14 @@ class MusicBot(commands.Bot):
                     logger.info(f"State change - playing: {current_playing}, track: {current_track.title if current_track else 'None'}")
                     
                     # Handle track change only if we're supposed to be playing
-                    if current_playing and current_track:
+                    if self.playlist_manager.is_playing and not self.playlist_manager.is_paused and current_track:
                         for voice_client in self.active_voice_clients.values():
                             music_commands = self.get_cog('MusicCommands')
                             if music_commands:
                                 await music_commands._play_track(None, voice_client, current_track)
+                                break
+                    else:
+                        logger.info("Playback halted: skipping _play_track() due to stop or pause")
                                 break
                     
                     # Handle stop/pause
