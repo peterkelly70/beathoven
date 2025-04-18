@@ -73,7 +73,6 @@ class MusicBot(commands.Bot):
                                 break
                     else:
                         logger.info("Playback halted: skipping _play_track() due to stop or pause")
-                                break
                     
                     # Handle stop/pause
                     if not current_playing:
