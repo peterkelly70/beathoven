@@ -357,6 +357,7 @@
     <script>
         let sessionId = '{{ session_id }}';
         let audio = new Audio();
+        let currentAudioUrl = null;
         let currentState = {
             is_playing: false,
             is_paused: false,
@@ -395,7 +396,7 @@
             // Update play/pause button
             const playBtn = document.querySelector('.control-btn[title="Play"]');
             const pauseBtn = document.querySelector('.control-btn[title="Pause"]');
-            if (state.is_playing && !state.is_paused) {
+            if (state.is_playing) {
                 playBtn.style.display = 'none';
                 pauseBtn.style.display = 'inline-block';
             } else {
@@ -486,38 +487,58 @@
         
         async function startPlayback() {
             await fetch('/api/player/play', { method: 'POST' });
-            updatePlayerState();
+            const state = await updatePlayerState();
+            if (state.current_track) {
+                playAudio(state.current_track.url);
+            }
         }
         
         async function pausePlayback() {
             await fetch('/api/player/pause', { method: 'POST' });
+            pauseAudio();
             updatePlayerState();
         }
         
         async function stopPlayback() {
             await fetch('/api/player/stop', { method: 'POST' });
-            updatePlayerState();
-        }
-        
-        async function previousTrack() {
-            await fetch('/api/player/previous', { method: 'POST' });
+            stopAudio();
             updatePlayerState();
         }
         
         async function nextTrack() {
             await fetch('/api/player/next', { method: 'POST' });
-            updatePlayerState();
+            const state = await updatePlayerState();
+            if (state.current_track && state.is_playing) {
+                playAudio(state.current_track.url);
+            }
+        }
+
+        async function previousTrack() {
+            await fetch('/api/player/previous', { method: 'POST' });
+            const state = await updatePlayerState();
+            if (state.current_track && state.is_playing) {
+                playAudio(state.current_track.url);
+            }
         }
         
-        async function setRepeatMode(mode) {
-            await fetch('/api/player/repeat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode })
-            });
-            updatePlayerState();
+        function playAudio(url) {
+            if (url !== currentAudioUrl) {
+                audio.src = url;
+                currentAudioUrl = url;
+            }
+            audio.play();
         }
-        
+
+        function pauseAudio() {
+            audio.pause();
+        }
+
+        function stopAudio() {
+            audio.pause();
+            audio.currentTime = 0;
+            currentAudioUrl = null;
+        }
+
         async function playPlaylist(name) {
             try {
                 const response = await fetch(`/api/playlists/${name}/play`, { method: 'POST' });
