@@ -50,44 +50,45 @@ class MusicBot(commands.Bot):
         self.bg_task = self.loop.create_task(self.monitor_playback_state())
         
     async def monitor_playback_state(self):
-        """Monitor playlist manager state for changes"""
-        await self.wait_until_ready()
-        last_track_url = None
-        last_playing_state = False
-        
-        while not self.is_closed():
-            try:
-                current_playing = self.playlist_manager.is_playing and not self.playlist_manager.is_paused
-                current_track = self.playlist_manager.get_current_track()
-                
-                # Check if playback state or track changed
-                if current_playing != last_playing_state or (current_track and current_track.url != last_track_url):
-                    logger.info(f"State change - playing: {current_playing}, track: {current_track.title if current_track else 'None'}")
-                    
-                    # Handle track change only if we're supposed to be playing
-                    if self.playlist_manager.is_playing and not self.playlist_manager.is_paused and current_track:
-                        for voice_client in self.active_voice_clients.values():
-                            music_commands = self.get_cog('MusicCommands')
-                            if music_commands:
-                                await music_commands._play_track(None, voice_client, current_track)
-                                break
-                    else:
-                        logger.info("Playback halted: skipping _play_track() due to stop or pause")
-                    
-                    # Handle stop/pause
-                    if not current_playing:
-                        for voice_client in self.active_voice_clients.values():
-                            if voice_client.is_playing():
-                                voice_client.stop()
-                    
-                    # Update state tracking
-                    last_playing_state = current_playing
-                    last_track_url = current_track.url if current_track else None
-                
-            except Exception as e:
-                logger.error(f"Error in monitor_playback_state: {e}", exc_info=True)
-            await asyncio.sleep(0.1)  
-        
+    await self.wait_until_ready()
+    last_track_url = None
+    last_playing_state = False
+
+    while not self.is_closed():
+        try:
+            is_playing = self.playlist_manager.is_playing
+            is_paused = self.playlist_manager.is_paused
+            current_track = self.playlist_manager.get_current_track()
+            current_playing = is_playing and not is_paused
+
+            logger.debug(f"[Monitor] is_playing={is_playing}, is_paused={is_paused}, current_track={current_track.title if current_track else None}")
+
+            if current_playing != last_playing_state or (current_track and current_track.url != last_track_url):
+                logger.info(f"State change - playing: {current_playing}, track: {current_track.title if current_track else 'None'}")
+
+                if current_playing and current_track:
+                    logger.info("[Monitor] Conditions met, calling _play_track()")
+                    for voice_client in self.active_voice_clients.values():
+                        music_commands = self.get_cog('MusicCommands')
+                        if music_commands:
+                            await music_commands._play_track(None, voice_client, current_track)
+                            break
+                else:
+                    logger.info("[Monitor] Playback halted: skipping _play_track() due to stop or pause")
+
+                if not current_playing:
+                    for voice_client in self.active_voice_clients.values():
+                        if voice_client.is_playing():
+                            logger.info("[Monitor] Stopping voice client playback")
+                            voice_client.stop()
+
+                last_playing_state = current_playing
+                last_track_url = current_track.url if current_track else None
+
+        except Exception as e:
+            logger.error(f"Error in monitor_playback_state: {e}", exc_info=True)
+        await asyncio.sleep(0.1)
+    
     async def on_ready(self):
         """Called when bot is ready"""
         logger.info(f'{self.user} has connected to Discord!')
