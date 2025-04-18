@@ -177,6 +177,14 @@ def control_playback(session_id):
         emit_player_state(session_id)
         return jsonify(player_state)
 
+    elif command == 'stop':
+        print(f"[control_playback] Received stop command, emitting to playback_control")
+        socketio.emit('playback_control', {
+            'session_id': session_id,
+            'action': 'stop'
+        })
+        return jsonify({'status': 'ok'})
+
 @app.route('/api/<session_id>/state')
 def get_state(session_id):
     player = session_manager.get_player(session_id)
