@@ -7,6 +7,8 @@ let youtubeCache = new Map(); // Cache for YouTube video titles
 let selectedTrackIndex;
 let currentState = null;
 let socketConnected = false;
+// Socket.IO connection (initialized on DOMContentLoaded)
+let socket;
 
 // Initialize DOM elements
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deletePlaylistBtn = document.getElementById('deletePlaylistBtn');
     
     // Initialize Socket.IO
-    const socket = io();
+    socket = io();
     socket.on('connect', () => {
         console.log('Socket connected');
         socketConnected = true;
